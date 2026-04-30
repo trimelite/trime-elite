@@ -5,7 +5,6 @@ export async function POST() {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // Run agents inline so the response includes real counts
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const scraperAgent  = require("../../../../agents/scraperAgent");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -18,6 +17,8 @@ export async function POST() {
     const dealAgent     = require("../../../../agents/dealAgent");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const contentAgent  = require("../../../../agents/contentAgent");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { read }      = require("../../../../agents/logger");
 
     await scraperAgent.run();
     leadAgent.run();
@@ -26,14 +27,23 @@ export async function POST() {
     dealAgent.run();
     await contentAgent.run();
 
-    const leads   = leadAgent.getLeads();
-    const scored  = leads.filter((l: { score: number }) => l.score > 0).length;
-    const outreach= leads.filter((l: { status: string }) => l.status === "contacted").length;
-    const deals   = leads.filter((l: { dealStage: string }) => l.dealStage !== "none").length;
+    const leads    = leadAgent.getLeads() as { score: number; status: string; dealStage: string }[];
+    const scored   = leads.filter(l => l.score > 0).length;
+    const outreach = leads.filter(l => l.status === "contacted").length;
+    const deals    = leads.filter(l => l.dealStage !== "none").length;
 
+    // Return snapshot inline — no second fetch needed
     return Response.json({
       ok: true,
       counts: { leads: leads.length, scored, outreach, deals },
+      snapshot: {
+        leads:     read("leads.json")          ?? [],
+        outreach:  read("outreach-drafts.json") ?? [],
+        deals:     read("deals.json")           ?? [],
+        content:   read("content.json"),
+        followups: read("followups.json")       ?? [],
+        posts:     read("posts.json")           ?? [],
+      },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Agent error";

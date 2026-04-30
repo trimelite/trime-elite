@@ -1,28 +1,40 @@
 "use strict";
-const fs = require("fs");
+const fs   = require("fs");
 const path = require("path");
 
 const LOGS = path.join(__dirname, "logs");
 
+// In-memory cache — survives within the same process/request chain
+if (!globalThis.__AGENT_STORE__) globalThis.__AGENT_STORE__ = {};
+const store = globalThis.__AGENT_STORE__;
+
 function write(file, data) {
-  if (!fs.existsSync(LOGS)) fs.mkdirSync(LOGS, { recursive: true });
-  fs.writeFileSync(path.join(LOGS, file), JSON.stringify(data, null, 2));
+  store[file] = data;
+  try {
+    if (!fs.existsSync(LOGS)) fs.mkdirSync(LOGS, { recursive: true });
+    fs.writeFileSync(path.join(LOGS, file), JSON.stringify(data, null, 2));
+  } catch { /* fs unavailable (Vercel) — memory store is source of truth */ }
 }
 
 function append(file, entry) {
-  const fp = path.join(LOGS, file);
-  const existing = fs.existsSync(fp) ? JSON.parse(fs.readFileSync(fp, "utf-8")) : [];
+  const existing = read(file) ?? [];
   existing.unshift({ ...entry, ts: new Date().toISOString() });
-  fs.writeFileSync(fp, JSON.stringify(existing.slice(0, 100), null, 2));
+  write(file, existing.slice(0, 100));
 }
 
 function read(file) {
+  if (store[file] !== undefined) return store[file];
   const fp = path.join(LOGS, file);
-  if (!fs.existsSync(fp)) return null;
-  try { return JSON.parse(fs.readFileSync(fp, "utf-8")); } catch { return null; }
+  try {
+    if (fs.existsSync(fp)) {
+      const parsed = JSON.parse(fs.readFileSync(fp, "utf-8"));
+      store[file] = parsed;
+      return parsed;
+    }
+  } catch { /* ignore */ }
+  return null;
 }
 
-// aliases used by enterprise modules
 const writeJSON = write;
 function appendJSON(file, entry) { append(file, entry); }
 

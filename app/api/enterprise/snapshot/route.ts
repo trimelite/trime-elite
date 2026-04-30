@@ -5,9 +5,16 @@ import path from "path";
 const LOGS = path.join(process.cwd(), "agents", "logs");
 
 function r(file: string) {
+  // Read from in-memory store first (populated by the run route in same process)
+  const store = (globalThis as Record<string, unknown>).__AGENT_STORE__ as Record<string, unknown> | undefined;
+  if (store && store[file] !== undefined) return store[file];
+
+  // Fall back to filesystem (Railway persistent volume)
   const fp = path.join(LOGS, file);
-  if (!fs.existsSync(fp)) return null;
-  try { return JSON.parse(fs.readFileSync(fp, "utf-8")); } catch { return null; }
+  try {
+    if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, "utf-8"));
+  } catch { /* ignore */ }
+  return null;
 }
 
 export async function GET() {

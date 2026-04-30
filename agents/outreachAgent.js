@@ -24,8 +24,11 @@ async function run() {
         // SMTP send — requires nodemailer; skipped until allowAutoSend=true
         console.log("[outreachAgent] auto-send skipped (allowAutoSend=false)");
       }
-      const ms = cfg.minDelayMs + Math.random() * (cfg.maxDelayMs - cfg.minDelayMs);
-      await delay(ms);
+      // Skip delay when running inside an API route (no SMTP being sent)
+      if (cfg.allowAutoSend) {
+        const ms = cfg.minDelayMs + Math.random() * (cfg.maxDelayMs - cfg.minDelayMs);
+        await delay(ms);
+      }
     } catch (e) { console.error("[outreachAgent]", lead.business, e.message); }
   }
 

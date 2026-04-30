@@ -365,6 +365,7 @@ function EnterpriseView() {
     try {
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
       const data = await res.json();
+      if (data.snapshot) setSnap(data.snapshot);
       if (data.counts) {
         const { leads, scored, outreach, deals } = data.counts;
         alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
@@ -492,17 +493,17 @@ function AgentActivity() {
     setRunning(true);
     try {
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
-      const data = await res.json();
-      if (data.counts) {
-        const { leads, scored, outreach } = data.counts;
+      const json = await res.json();
+      // Use inline snapshot from run response — no second fetch needed
+      if (json.snapshot) {
+        setData({ content: json.snapshot.content, videoAnalysis: null });
+      }
+      if (json.counts) {
+        const { leads, scored, outreach } = json.counts;
         alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
       }
     } catch { /* silent */ }
-    setTimeout(() => {
-      fetch("/api/agents/activity", { credentials: "same-origin" })
-        .then((r) => r.json()).then(setData).catch(() => {});
-      setRunning(false);
-    }, 3000);
+    setRunning(false);
   }
 
   type Idea = { title?: string; format?: string; hook?: string };
