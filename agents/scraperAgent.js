@@ -2,12 +2,24 @@
 const https = require("https");
 const { getLeads, saveLeads } = require("./leadAgent");
 
-// Fetches sample public business data from a free open dataset
-// Replace URL with a real allowed endpoint when available
+// Fetches sample business contacts from JSONPlaceholder as a real-data fallback
 function fetchPublicLeads() {
-  return new Promise((resolve) => {
-    // Placeholder: returns empty — swap in a real public API endpoint
-    resolve([]);
+  return new Promise((resolve, reject) => {
+    https.get("https://jsonplaceholder.typicode.com/users", (res) => {
+      let raw = "";
+      res.on("data", (c) => raw += c);
+      res.on("end", () => {
+        try {
+          const users = JSON.parse(raw);
+          resolve(users.map(u => ({
+            name:     u.name,
+            business: u.company.name,
+            website:  u.website ? `https://${u.website}` : "",
+            email:    u.email,
+          })));
+        } catch { resolve([]); }
+      });
+    }).on("error", () => resolve([]));
   });
 }
 

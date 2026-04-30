@@ -1,1 +1,7 @@
-[]
+[
+  { "name": "Mike Torres", "business": "Torres Plumbing LLC", "website": "", "email": "mike@torresplumbing.com", "status": "new", "score": 0, "lastContact": null, "dealStage": "none", "client": false },
+  { "name": "Sandra Lee", "business": "Lee's House Cleaning", "website": "leeshousecleaning.com", "email": "sandra@leescleaning.com", "status": "new", "score": 0, "lastContact": null, "dealStage": "none", "client": false },
+  { "name": "James Ortiz", "business": "Ortiz Auto Repair", "website": "", "email": "james@ortizauto.com", "status": "new", "score": 0, "lastContact": null, "dealStage": "none", "client": false },
+  { "name": "Priya Patel", "business": "Patel Landscaping Co", "website": "patellandscaping.com", "email": "priya@patellandscaping.com", "status": "new", "score": 0, "lastContact": null, "dealStage": "none", "client": false },
+  { "name": "Carlos Reyes", "business": "Reyes Roofing & Gutters", "website": "", "email": "carlos@reyesroofing.com", "status": "new", "score": 0, "lastContact": null, "dealStage": "none", "client": false }
+]

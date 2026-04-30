@@ -362,8 +362,16 @@ function EnterpriseView() {
 
   async function runSystem() {
     setRunning(true);
-    await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" }).catch(() => {});
-    setTimeout(() => { refreshSnap(); setRunning(false); }, 4000);
+    try {
+      const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
+      const data = await res.json();
+      if (data.counts) {
+        const { leads, scored, outreach, deals } = data.counts;
+        alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
+      }
+    } catch { /* silent */ }
+    refreshSnap();
+    setRunning(false);
   }
 
   type LeadRow = { business?: string; dealStage?: string; score?: number; status?: string };
@@ -482,7 +490,14 @@ function AgentActivity() {
 
   async function runAgents() {
     setRunning(true);
-    await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" }).catch(() => {});
+    try {
+      const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
+      const data = await res.json();
+      if (data.counts) {
+        const { leads, scored, outreach } = data.counts;
+        alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
+      }
+    } catch { /* silent */ }
     setTimeout(() => {
       fetch("/api/agents/activity", { credentials: "same-origin" })
         .then((r) => r.json()).then(setData).catch(() => {});
