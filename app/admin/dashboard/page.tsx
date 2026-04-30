@@ -365,13 +365,21 @@ function EnterpriseView() {
     try {
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
       const data = await res.json();
-      if (data.snapshot) setSnap(data.snapshot);
+      if (data.error) throw new Error(data.error);
+      // Apply inline snapshot immediately — don't overwrite with stale refreshSnap
+      if (data.snapshot) {
+        setSnap(data.snapshot);
+      } else {
+        // Fallback: re-fetch snapshot on same connection
+        refreshSnap();
+      }
       if (data.counts) {
         const { leads, scored, outreach, deals } = data.counts;
-        alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
+        alert(`Done — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
       }
-    } catch { /* silent */ }
-    refreshSnap();
+    } catch (e) {
+      alert(`Error: ${e instanceof Error ? e.message : "unknown"}`);
+    }
     setRunning(false);
   }
 
