@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   // Dynamically require to avoid bundling Node-only modules
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { setStage } = require("../../../../../agents/dealAgent");
+  const { setStage } = require("../../../../agents/dealAgent");
   const lead = setStage(business, stage, value ?? null);
   if (!lead) return Response.json({ error: "Lead not found or invalid stage" }, { status: 404 });
   return Response.json({ ok: true, lead });
