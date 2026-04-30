@@ -614,11 +614,12 @@ function VideoAnalysisButton() {
     setErrMsg(null);
     try {
       const r = await fetch("/api/ai/video-analysis", { method: "POST", credentials: "same-origin" });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({ error: r.statusText })) as { error?: string };
-        setErrMsg(body.error ?? r.statusText);
+      const body = await r.json().catch(() => ({ ok: false, error: "Invalid response" })) as { ok?: boolean; error?: string; note?: string };
+      if (body.ok === false && body.error) {
+        setErrMsg(body.error);
         setStatus("error");
       } else {
+        if (body.note) setErrMsg(body.note);
         setStatus("done");
       }
     } catch (e) {

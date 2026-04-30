@@ -10,16 +10,13 @@ export async function POST() {
   const script = path.join(process.cwd(), "ai-system", "run.js");
 
   if (!fs.existsSync(script)) {
-    return Response.json({
-      ok: true,
-      note: "Video analysis script not configured — place ai-system/run.js to enable",
-    });
+    return Response.json({ ok: true, note: "Video analysis not configured" });
   }
 
   return new Promise<Response>((resolve) => {
     execFile("node", [script], { env: process.env as NodeJS.ProcessEnv }, (err) => {
       if (err) {
-        resolve(Response.json({ error: err.message }, { status: 500 }));
+        resolve(Response.json({ ok: false, error: err.message }));
       } else {
         resolve(Response.json({ ok: true }));
       }
