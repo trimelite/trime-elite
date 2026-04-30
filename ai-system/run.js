@@ -8,8 +8,21 @@ const PROMPT = fs.readFileSync(path.join(__dirname, "prompt.txt"), "utf-8");
 const OUT = path.join(__dirname, "output.md");
 const KEY = process.env.ANTHROPIC_API_KEY;
 
-if (!KEY) { console.error("Missing ANTHROPIC_API_KEY"); process.exit(1); }
-if (!fs.existsSync(VIDEO)) { console.error("No video at ai-system/input/video.mp4"); process.exit(1); }
+if (!KEY) {
+  console.log("Video analysis skipped — ANTHROPIC_API_KEY not set");
+  process.exit(0);
+}
+if (!fs.existsSync(VIDEO)) {
+  const logPath = path.join(__dirname, "..", "agents", "logs", "video-analysis.json");
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  fs.writeFileSync(logPath, JSON.stringify({
+    ts: new Date().toISOString(),
+    note: "No video uploaded yet. Place a video.mp4 file in ai-system/input/ to enable analysis.",
+    analysis: null,
+  }, null, 2));
+  console.log("Video analysis skipped — no video file found");
+  process.exit(0);
+}
 
 const data = fs.readFileSync(VIDEO).toString("base64");
 

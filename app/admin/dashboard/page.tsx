@@ -604,26 +604,26 @@ function AgentActivity() {
 
 function VideoAnalysisButton() {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
-  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; type: "info" | "error" } | null>(null);
   const label = { idle: "Run AI Analysis", running: "Analyzing...", done: "✓ Analysis complete", error: "✗ Failed — click to retry" };
   const color = { idle: "border-neon text-neon hover:bg-neon hover:text-bg", running: "border-muted text-muted opacity-50 cursor-not-allowed", done: "border-green-500 text-green-400", error: "border-red-500 text-red-400 hover:bg-red-500/10" };
 
   async function run() {
     if (status === "running") return;
     setStatus("running");
-    setErrMsg(null);
+    setMsg(null);
     try {
       const r = await fetch("/api/ai/video-analysis", { method: "POST", credentials: "same-origin" });
-      const body = await r.json().catch(() => ({ ok: false, error: "Invalid response" })) as { ok?: boolean; error?: string; note?: string };
-      if (body.ok === false && body.error) {
-        setErrMsg(body.error);
+      const body = await r.json().catch(() => ({ success: false, error: "Invalid response" })) as { success?: boolean; error?: string; message?: string };
+      if (body.success === false) {
+        setMsg({ text: body.error ?? "Analysis failed", type: "error" });
         setStatus("error");
       } else {
-        if (body.note) setErrMsg(body.note);
+        if (body.message) setMsg({ text: body.message, type: "info" });
         setStatus("done");
       }
     } catch (e) {
-      setErrMsg(e instanceof Error ? e.message : "Network error");
+      setMsg({ text: e instanceof Error ? e.message : "Network error", type: "error" });
       setStatus("error");
     }
   }
@@ -637,8 +637,10 @@ function VideoAnalysisButton() {
       >
         {label[status]}
       </button>
-      {errMsg && (
-        <p className="text-red-400 text-[10px] font-mono">{errMsg}</p>
+      {msg && (
+        <p className={`text-[10px] font-mono ${msg.type === "error" ? "text-red-400" : "text-muted"}`}>
+          {msg.text}
+        </p>
       )}
     </div>
   );
