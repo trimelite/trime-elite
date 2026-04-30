@@ -343,6 +343,7 @@ function ERow({ label, value }: { label: string; value: string | number }) {
 function EnterpriseView() {
   const [snap, setSnap] = useState<Snap | null>(null);
   const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState<string | null>(null);
 
   function refreshSnap() {
     fetch("/api/enterprise/snapshot", { credentials: "same-origin" })
@@ -362,23 +363,22 @@ function EnterpriseView() {
 
   async function runSystem() {
     setRunning(true);
+    setRunMsg(null);
     try {
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      // Apply inline snapshot immediately — don't overwrite with stale refreshSnap
       if (data.snapshot) {
         setSnap(data.snapshot);
       } else {
-        // Fallback: re-fetch snapshot on same connection
         refreshSnap();
       }
       if (data.counts) {
         const { leads, scored, outreach, deals } = data.counts;
-        alert(`Done — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
+        setRunMsg(`✓ Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach} | Deals: ${deals}`);
       }
     } catch (e) {
-      alert(`Error: ${e instanceof Error ? e.message : "unknown"}`);
+      setRunMsg(`✗ ${e instanceof Error ? e.message : "unknown error"}`);
     }
     setRunning(false);
   }
@@ -404,6 +404,11 @@ function EnterpriseView() {
           className="w-full py-2.5 border border-neon text-neon rounded text-xs font-mono font-bold tracking-wider hover:bg-neon hover:text-bg transition-colors disabled:opacity-40">
           {running ? "Running System..." : "Run System Now"}
         </button>
+        {runMsg && (
+          <p className={`mt-3 text-[11px] font-mono ${runMsg.startsWith("✓") ? "text-neon" : "text-red-400"}`}>
+            {runMsg}
+          </p>
+        )}
       </Panel>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -491,6 +496,7 @@ function EnterpriseView() {
 function AgentActivity() {
   const [data, setData] = useState<{ content: Record<string,unknown> | null; videoAnalysis: Record<string,unknown> | null } | null>(null);
   const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/agents/activity", { credentials: "same-origin" })
@@ -499,18 +505,21 @@ function AgentActivity() {
 
   async function runAgents() {
     setRunning(true);
+    setRunMsg(null);
     try {
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
       const json = await res.json();
-      // Use inline snapshot from run response — no second fetch needed
       if (json.snapshot) {
         setData({ content: json.snapshot.content, videoAnalysis: null });
       }
       if (json.counts) {
         const { leads, scored, outreach } = json.counts;
-        alert(`Agents complete — Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
+        setRunMsg(`✓ Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
       }
-    } catch { /* silent */ }
+      if (json.error) setRunMsg(`✗ ${json.error}`);
+    } catch (e) {
+      setRunMsg(`✗ ${e instanceof Error ? e.message : "unknown error"}`);
+    }
     setRunning(false);
   }
 
@@ -528,6 +537,11 @@ function AgentActivity() {
         >
           {running ? "Running agents..." : "Run Agents Now"}
         </button>
+        {runMsg && (
+          <p className={`mb-4 text-[11px] font-mono ${runMsg.startsWith("✓") ? "text-neon" : "text-red-400"}`}>
+            {runMsg}
+          </p>
+        )}
 
         <p className="text-muted text-[10px] font-mono uppercase tracking-wider mb-2">Latest Content Ideas</p>
         {ideas.length === 0 ? (
