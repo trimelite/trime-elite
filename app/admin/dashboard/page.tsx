@@ -497,28 +497,45 @@ function AgentActivity() {
   const [data, setData] = useState<{ content: Record<string,unknown> | null; videoAnalysis: Record<string,unknown> | null } | null>(null);
   const [running, setRunning] = useState(false);
   const [runMsg, setRunMsg] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/agents/activity", { credentials: "same-origin" })
       .then((r) => r.json()).then(setData).catch(() => {});
   }, []);
 
+  function addLog(msg: string) {
+    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
+  }
+
   async function runAgents() {
     setRunning(true);
     setRunMsg(null);
+    setLogs([]);
+    addLog("Starting pipeline...");
     try {
+      addLog("Scraping leads from public sources...");
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
+      addLog("Scoring and filtering leads...");
       const json = await res.json();
       if (json.snapshot) {
         setData({ content: json.snapshot.content, videoAnalysis: null });
+        addLog(`Outreach drafts prepared: ${(json.snapshot.outreach as unknown[])?.length ?? 0}`);
+        addLog(`Content ideas generated: ${(json.snapshot.content as {ideas?: unknown[]})?.ideas?.length ?? 0}`);
       }
       if (json.counts) {
         const { leads, scored, outreach } = json.counts;
+        addLog(`Pipeline complete — ${leads} leads, ${scored} scored, ${outreach} contacted`);
         setRunMsg(`✓ Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
       }
-      if (json.error) setRunMsg(`✗ ${json.error}`);
+      if (json.error) {
+        addLog(`✗ Error: ${json.error}`);
+        setRunMsg(`✗ ${json.error}`);
+      }
     } catch (e) {
-      setRunMsg(`✗ ${e instanceof Error ? e.message : "unknown error"}`);
+      const msg = e instanceof Error ? e.message : "unknown error";
+      addLog(`✗ ${msg}`);
+      setRunMsg(`✗ ${msg}`);
     }
     setRunning(false);
   }
@@ -538,9 +555,24 @@ function AgentActivity() {
           {running ? "Running agents..." : "Run Agents Now"}
         </button>
         {runMsg && (
-          <p className={`mb-4 text-[11px] font-mono ${runMsg.startsWith("✓") ? "text-neon" : "text-red-400"}`}>
+          <p className={`mb-2 text-[11px] font-mono ${runMsg.startsWith("✓") ? "text-neon" : "text-red-400"}`}>
             {runMsg}
           </p>
+        )}
+
+        {logs.length > 0 && (
+          <div className="mb-4 bg-bg border border-panel rounded-lg p-3 max-h-36 overflow-y-auto">
+            {logs.map((line, i) => (
+              <p key={i} className="text-[10px] font-mono text-muted leading-5">
+                <span className="text-neon2 mr-1">›</span>{line}
+              </p>
+            ))}
+            {running && (
+              <p className="text-[10px] font-mono text-neon animate-pulse mt-1">
+                <span className="mr-1">›</span>running...
+              </p>
+            )}
+          </div>
         )}
 
         <p className="text-muted text-[10px] font-mono uppercase tracking-wider mb-2">Latest Content Ideas</p>
@@ -572,28 +604,42 @@ function AgentActivity() {
 
 function VideoAnalysisButton() {
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
-  const label = { idle: "Run AI Analysis", running: "Analyzing...", done: "✓ Done — check ai-system/output.md", error: "Error — retry?" };
-  const color = { idle: "border-neon text-neon hover:bg-neon hover:text-bg", running: "border-muted text-muted opacity-50 cursor-not-allowed", done: "border-green-500 text-green-400", error: "border-red-500 text-red-400" };
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const label = { idle: "Run AI Analysis", running: "Analyzing...", done: "✓ Analysis complete", error: "✗ Failed — click to retry" };
+  const color = { idle: "border-neon text-neon hover:bg-neon hover:text-bg", running: "border-muted text-muted opacity-50 cursor-not-allowed", done: "border-green-500 text-green-400", error: "border-red-500 text-red-400 hover:bg-red-500/10" };
 
   async function run() {
     if (status === "running") return;
     setStatus("running");
+    setErrMsg(null);
     try {
       const r = await fetch("/api/ai/video-analysis", { method: "POST", credentials: "same-origin" });
-      setStatus(r.ok ? "done" : "error");
-    } catch {
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: r.statusText })) as { error?: string };
+        setErrMsg(body.error ?? r.statusText);
+        setStatus("error");
+      } else {
+        setStatus("done");
+      }
+    } catch (e) {
+      setErrMsg(e instanceof Error ? e.message : "Network error");
       setStatus("error");
     }
   }
 
   return (
-    <button
-      onClick={run}
-      disabled={status === "running"}
-      className={`w-full py-2.5 border rounded text-xs font-mono font-bold tracking-wider transition-colors ${color[status]}`}
-    >
-      {label[status]}
-    </button>
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={run}
+        disabled={status === "running"}
+        className={`w-full py-2.5 border rounded text-xs font-mono font-bold tracking-wider transition-colors ${color[status]}`}
+      >
+        {label[status]}
+      </button>
+      {errMsg && (
+        <p className="text-red-400 text-[10px] font-mono">{errMsg}</p>
+      )}
+    </div>
   );
 }
 
