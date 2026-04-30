@@ -493,11 +493,27 @@ function EnterpriseView() {
 
 // ── Agent Activity ────────────────────────────────────────────────────────────
 
+type AgentStatus = "idle" | "running" | "done" | "error";
+type AgentDef = { name: string; status: AgentStatus };
+
+const AGENT_SEQUENCE: { name: string; action: string }[] = [
+  { name: "Scraper",  action: "Fetching leads from public sources..." },
+  { name: "LeadBot",  action: "Normalising and deduplicating leads..." },
+  { name: "Scorer",   action: "Scoring each lead 0–100..." },
+  { name: "Outreach", action: "Drafting outreach messages..." },
+  { name: "DealBot",  action: "Tracking deal stages..." },
+  { name: "Content",  action: "Generating content ideas..." },
+];
+
 function AgentActivity() {
   const [data, setData] = useState<{ content: Record<string,unknown> | null; videoAnalysis: Record<string,unknown> | null } | null>(null);
   const [running, setRunning] = useState(false);
   const [runMsg, setRunMsg] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [agents, setAgents] = useState<AgentDef[]>(
+    AGENT_SEQUENCE.map(a => ({ name: a.name, status: "idle" }))
+  );
+  const [currentAction, setCurrentAction] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/agents/activity", { credentials: "same-origin" })
@@ -508,20 +524,43 @@ function AgentActivity() {
     setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
   }
 
+  function setAgentStatus(name: string, status: AgentStatus) {
+    setAgents(prev => prev.map(a => a.name === name ? { ...a, status } : a));
+  }
+
   async function runAgents() {
     setRunning(true);
     setRunMsg(null);
     setLogs([]);
+    setCurrentAction("Initialising pipeline...");
+    setAgents(AGENT_SEQUENCE.map(a => ({ name: a.name, status: "idle" })));
+
+    // Animate agents sequentially before the real request completes
     addLog("Starting pipeline...");
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    AGENT_SEQUENCE.forEach((a, i) => {
+      timers.push(setTimeout(() => {
+        setAgentStatus(a.name, "running");
+        setCurrentAction(a.action);
+        addLog(a.action);
+      }, i * 600));
+    });
+
     try {
-      addLog("Scraping leads from public sources...");
       const res = await fetch("/api/agents/run", { method: "POST", credentials: "same-origin" });
-      addLog("Scoring and filtering leads...");
+      timers.forEach(clearTimeout);
+
       const json = await res.json();
+
+      // Mark all done or error
+      const finalStatus: AgentStatus = json.error ? "error" : "done";
+      setAgents(AGENT_SEQUENCE.map(a => ({ name: a.name, status: finalStatus })));
+      setCurrentAction(null);
+
       if (json.snapshot) {
         setData({ content: json.snapshot.content, videoAnalysis: null });
-        addLog(`Outreach drafts prepared: ${(json.snapshot.outreach as unknown[])?.length ?? 0}`);
-        addLog(`Content ideas generated: ${(json.snapshot.content as {ideas?: unknown[]})?.ideas?.length ?? 0}`);
+        addLog(`Outreach drafts: ${(json.snapshot.outreach as unknown[])?.length ?? 0}`);
+        addLog(`Content ideas: ${(json.snapshot.content as {ideas?: unknown[]})?.ideas?.length ?? 0}`);
       }
       if (json.counts) {
         const { leads, scored, outreach } = json.counts;
@@ -529,10 +568,13 @@ function AgentActivity() {
         setRunMsg(`✓ Leads: ${leads} | Scored: ${scored} | Outreach: ${outreach}`);
       }
       if (json.error) {
-        addLog(`✗ Error: ${json.error}`);
+        addLog(`✗ ${json.error}`);
         setRunMsg(`✗ ${json.error}`);
       }
     } catch (e) {
+      timers.forEach(clearTimeout);
+      setAgents(AGENT_SEQUENCE.map(a => ({ name: a.name, status: "error" })));
+      setCurrentAction(null);
       const msg = e instanceof Error ? e.message : "unknown error";
       addLog(`✗ ${msg}`);
       setRunMsg(`✗ ${msg}`);
@@ -554,6 +596,35 @@ function AgentActivity() {
         >
           {running ? "Running agents..." : "Run Agents Now"}
         </button>
+        {/* Agent status grid */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {agents.map((a) => {
+            const dot =
+              a.status === "running" ? "bg-neon animate-pulse" :
+              a.status === "done"    ? "bg-green-500" :
+              a.status === "error"   ? "bg-red-500" :
+              "bg-panel border border-panel";
+            const label =
+              a.status === "running" ? "text-neon" :
+              a.status === "done"    ? "text-green-400" :
+              a.status === "error"   ? "text-red-400" :
+              "text-muted";
+            return (
+              <div key={a.name} className="flex items-center gap-1.5 bg-bg border border-panel rounded-lg px-2.5 py-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+                <span className={`text-[10px] font-mono truncate ${label}`}>{a.name}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Talking status */}
+        {currentAction && (
+          <p className="text-neon2 text-[10px] font-mono mb-3 animate-pulse">
+            ◎ {currentAction}
+          </p>
+        )}
+
         {runMsg && (
           <p className={`mb-2 text-[11px] font-mono ${runMsg.startsWith("✓") ? "text-neon" : "text-red-400"}`}>
             {runMsg}
