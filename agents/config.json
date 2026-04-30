@@ -1,0 +1,7 @@
+{
+  "allowAutoSend": false,
+  "dailyEmailLimit": 20,
+  "minDelayMs": 120000,
+  "maxDelayMs": 300000,
+  "followUpDays": 2
+}

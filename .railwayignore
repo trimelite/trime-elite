@@ -1,0 +1,6 @@
+.next/cache
+pipeline/input
+pipeline/frames
+ai-system/input
+agents/logs
+*.log

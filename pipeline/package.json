@@ -1,0 +1,11 @@
+{
+  "name": "trim-elite-video-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Video analysis pipeline — extracts frames and sends to Claude for structured analysis",
+  "scripts": {
+    "analyze": "node run.js",
+    "start": "node run.js"
+  },
+  "dependencies": {}
+}
