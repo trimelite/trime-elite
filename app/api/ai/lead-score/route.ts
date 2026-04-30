@@ -2,8 +2,6 @@ import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSession } from "@/lib/auth";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,8 +9,10 @@ export async function POST(req: NextRequest) {
   const { business, website, rating, issues } = await req.json();
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json({ score: 0, reasoning: "[AI offline — add ANTHROPIC_API_KEY to .env.local]" });
+    return Response.json({ score: 0, reasoning: "[AI offline — add ANTHROPIC_API_KEY in Railway/Vercel env vars]" });
   }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const prompt = `Score this lead for a digital marketing agency (1-100).
 
